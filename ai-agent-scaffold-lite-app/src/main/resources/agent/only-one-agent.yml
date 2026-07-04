@@ -1,0 +1,138 @@
+ai:
+  agent:
+    config:
+      tables:
+        testAgent02:
+          app-name: ResearchAndSynthesisPipeline
+          agent:
+            agent-id: 100002
+            agent-name: 测试智能体02
+            agent-desc: 并行研究并汇总的智能体管道
+          module:
+            ai-api:
+              base-url: https://apis.itedus.cn
+              api-key: sk-L1HhsSyQcQA4ngHHFf87E87f4c624158A3748c7691E57089
+              completions-path: v1/chat/completions
+              embeddings-path: v1/embeddings
+            chat-model:
+              model: gpt-4.1
+            agents:
+              - name: RenewableEnergyResearcher
+                description: Researches renewable energy sources.
+                instruction: |
+                  You are an AI Research Assistant specializing in energy.
+                  Research the latest advancements in 'renewable energy sources'.
+                  Use the Google Search tool provided.
+                  Summarize your key findings concisely (1-2 sentences).
+                  Output *only* the summary.
+                output-key: renewable_energy_result
+              - name: EVResearcher
+                description: Researches electric vehicle technology.
+                instruction: |
+                  You are an AI Research Assistant specializing in transportation.
+                  Research the latest developments in 'electric vehicle technology'.
+                  Use the Google Search tool provided.
+                  Summarize your key findings concisely (1-2 sentences).
+                  Output *only* the summary.
+                output-key: ev_technology_result
+              - name: CarbonCaptureResearcher
+                description: Researches carbon capture methods.
+                instruction: |
+                  You are an AI Research Assistant specializing in climate solutions.
+                  Research the current state of 'carbon capture methods'.
+                  Use the Google Search tool provided.
+                  Summarize your key findings concisely (1-2 sentences).
+                  Output *only* the summary.
+                output-key: carbon_capture_result
+              - name: SynthesisAgent
+                description: Combines research findings into a structured report.
+                instruction: |
+                  You are an AI Assistant responsible for combining research findings into a structured report.
+                  Your primary task is to synthesize the following research summaries, clearly attributing findings to their source areas. Structure your response using headings for each topic. Ensure the report is coherent and integrates the key points smoothly.
+                  **Crucially: Your entire response MUST be grounded *exclusively* on the information provided in the 'Input Summaries' below. Do NOT add any external knowledge, facts, or details not present in these specific summaries.**
+                  **Input Summaries:**
+
+                  *   **Renewable Energy:**
+                      {renewable_energy_result}
+
+                  *   **Electric Vehicles:**
+                      {ev_technology_result}
+
+                  *   **Carbon Capture:**
+                      {carbon_capture_result}
+
+                  **Output Format:**
+
+                  ## Summary of Recent Sustainable Technology Advancements
+
+                  ### Renewable Energy Findings
+                  (Based on RenewableEnergyResearcher's findings)
+                  [Synthesize and elaborate *only* on the renewable energy input summary provided above.]
+
+                  ### Electric Vehicle Findings
+                  (Based on EVResearcher's findings)
+                  [Synthesize and elaborate *only* on the EV input summary provided above.]
+
+                  ### Carbon Capture Findings
+                  (Based on CarbonCaptureResearcher's findings)
+                  [Synthesize and elaborate *only* on the carbon capture input summary provided above.]
+
+                  ### Overall Conclusion
+                  [Provide a brief (1-2 sentence) concluding statement that connects *only* the findings presented above.]
+
+                  Output *only* the structured report following this format. Do not include introductory or concluding phrases outside this structure, and strictly adhere to using only the provided input summary content.
+            agent-workflows:
+              - type: parallel
+                name: ParallelWebResearchAgent
+                description: Runs multiple research agents in parallel to gather information.
+                sub-agents:
+                  - RenewableEnergyResearcher
+                  - EVResearcher
+                  - CarbonCaptureResearcher
+              - type: sequential
+                name: ResearchAndSynthesisPipeline
+                description: Coordinates parallel research and synthesizes the results.
+                sub-agents:
+                  - ParallelWebResearchAgent
+                  - SynthesisAgent
+            runner:
+              agent-name: ResearchAndSynthesisPipeline
+        testAgent03:
+          app-name: testAgent03
+          agent:
+              agent-id: 100003
+              agent-name: 单一智能体
+              agent-desc: 单一智能体
+          module:
+            ai-api:
+              base-url: https://apis.itedus.cn
+              api-key: sk-L1HhsSyQcQA4ngHHFf87E87f4c624158A3748c7691E57089
+              completions-path: v1/chat/completions
+              embeddings-path: v1/embeddings
+            chat-model:
+              model: gpt-4.1
+              tool-mcp-list:
+#                - sse:
+#                    name: baidu-search
+#                    base-uri: http://appbuilder.baidu.com/v2/ai_search/mcp/
+#                    see-endpoint: sse?api_key=bce-v3/ALTAK-WjK8NIh3txZo7rXXEjhri/e2f09d53de961bcaf2609b76c7c7a7e6d0f05da3
+#                    request-timeout: 500000
+                - local:
+                    name: myToolCallbackProvider
+              tool-skills-list:
+                - type: resource
+                  path: agent/skills
+
+#                - type: directory
+#                  path: /Users/fuzhengwei/coding/gitcode/KnowledgePlanet/ai-agent-scaffold/ai-agent-scaffold-lite/docs/dev-ops/agent/skills
+            agents:
+              - name: onlyAgent
+                description: 小傅哥学习项目计划
+                instruction: |
+                  通过百度检索小傅哥编程实战项目，并根据检索内容，针对初学用户给出学习计划。
+            runner:
+              agent-name: onlyAgent
+              plugin-name-list:
+                - myTestPlugin
+                - myLogPlugin
+                - prometheusMonitoringPlugin
