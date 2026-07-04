@@ -1,5 +1,8 @@
 package cn.bugstack.ai.domain.agent.service.armory.matter.patch;
 
+import cn.bugstack.ai.domain.agent.service.armory.matter.fallback.FallbackResponseService;
+import cn.bugstack.ai.domain.agent.service.armory.matter.resilience.LlmExhaustedException;
+import cn.bugstack.ai.domain.agent.service.armory.matter.resilience.LlmRetryHandler;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.adk.models.BaseLlm;
 import com.google.adk.models.BaseLlmConnection;
@@ -9,14 +12,19 @@ import com.google.adk.models.springai.MessageConverter;
 import com.google.adk.models.springai.error.SpringAIErrorMapper;
 import com.google.adk.models.springai.observability.SpringAIObservabilityHandler;
 import com.google.adk.models.springai.properties.SpringAIProperties;
+import com.google.genai.types.Content;
+import com.google.genai.types.Part;
 import io.reactivex.rxjava3.core.BackpressureStrategy;
 import io.reactivex.rxjava3.core.Flowable;
+import lombok.Setter;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.model.StreamingChatModel;
 import org.springframework.ai.chat.prompt.Prompt;
 import reactor.core.publisher.Flux;
 
+import java.util.List;
 import java.util.Objects;
 
 /**
@@ -24,6 +32,7 @@ import java.util.Objects;
  * @author xiaofuge bugstack.cn @小傅哥
  * 2026/1/9 08:20
  */
+@Slf4j
 public class MySpringAI extends BaseLlm {
 
     private final ChatModel chatModel;
@@ -31,6 +40,14 @@ public class MySpringAI extends BaseLlm {
     private final ObjectMapper objectMapper;
     private final MessageConverter messageConverter;
     private final SpringAIObservabilityHandler observabilityHandler;
+
+    /** LLM 重试处理器（setter 注入，可选） */
+    @Setter
+    private LlmRetryHandler llmRetryHandler;
+
+    /** 降级回复服务（setter 注入，可选） */
+    @Setter
+    private FallbackResponseService fallbackResponseService;
 
     public MySpringAI(ChatModel chatModel) {
         super(extractModelName(chatModel));
@@ -159,7 +176,15 @@ public class MySpringAI extends BaseLlm {
             Prompt prompt = messageConverter.toLlmPrompt(llmRequest);
             observabilityHandler.logRequest(prompt.toString(), model());
 
-            ChatResponse chatResponse = chatModel.call(prompt);
+            // 带重试的 LLM 调用
+            ChatResponse chatResponse;
+            if (llmRetryHandler != null) {
+                chatResponse = llmRetryHandler.executeWithRetry(
+                        () -> chatModel.call(prompt), model());
+            } else {
+                chatResponse = chatModel.call(prompt);
+            }
+
             LlmResponse llmResponse = messageConverter.toLlmResponse(chatResponse);
 
             observabilityHandler.logResponse(extractTextFromResponse(llmResponse), model());
@@ -171,12 +196,42 @@ public class MySpringAI extends BaseLlm {
 
             observabilityHandler.recordSuccess(context, totalTokens, inputTokens, outputTokens);
             return Flowable.just(llmResponse);
+
+        } catch (LlmExhaustedException e) {
+            log.error("LLM 调用重试耗尽，触发降级 model:{}", model(), e);
+            observabilityHandler.recordError(context, e);
+            return generateFallbackResponse(llmRequest, context);
+
         } catch (Exception e) {
             observabilityHandler.recordError(context, e);
             SpringAIErrorMapper.MappedError mappedError = SpringAIErrorMapper.mapError(e);
 
             return Flowable.error(new RuntimeException(mappedError.getNormalizedMessage(), e));
         }
+    }
+
+    /**
+     * 降级兜底响应
+     * 当 LLM 重试耗尽后，返回预设的兜底文案
+     */
+    private Flowable<LlmResponse> generateFallbackResponse(
+            LlmRequest llmRequest, SpringAIObservabilityHandler.RequestContext context) {
+
+        String fallbackText = fallbackResponseService != null
+                ? fallbackResponseService.getDefaultReply()
+                : "抱歉，AI 服务暂时不可用，请稍后重试。";
+
+        log.warn("返回降级兜底回复 model:{}", model());
+
+        LlmResponse fallbackResponse = LlmResponse.builder()
+                .content(Content.builder()
+                        .role("model")
+                        .parts(List.of(Part.fromText(fallbackText)))
+                        .build())
+                .build();
+
+        observabilityHandler.recordSuccess(context, 0, 0, 0);
+        return Flowable.just(fallbackResponse);
     }
 
     private Flowable<LlmResponse> generateStreamingContent(LlmRequest llmRequest) {

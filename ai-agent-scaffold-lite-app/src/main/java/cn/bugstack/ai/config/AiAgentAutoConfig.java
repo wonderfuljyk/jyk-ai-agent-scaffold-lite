@@ -1,6 +1,8 @@
 package cn.bugstack.ai.config;
 
 import cn.bugstack.ai.domain.agent.model.valobj.properties.AiAgentAutoConfigProperties;
+import cn.bugstack.ai.domain.agent.model.valobj.properties.LlmResilienceProperties;
+import cn.bugstack.ai.domain.agent.model.valobj.properties.SessionRedisProperties;
 import cn.bugstack.ai.domain.agent.service.IArmoryService;
 import com.alibaba.fastjson.JSON;
 import lombok.extern.slf4j.Slf4j;
@@ -14,7 +16,7 @@ import java.util.ArrayList;
 
 @Slf4j
 @Configuration
-@EnableConfigurationProperties(AiAgentAutoConfigProperties.class)
+@EnableConfigurationProperties({AiAgentAutoConfigProperties.class, SessionRedisProperties.class, LlmResilienceProperties.class})
 public class AiAgentAutoConfig implements ApplicationListener<ApplicationReadyEvent> {
 
     @Resource
