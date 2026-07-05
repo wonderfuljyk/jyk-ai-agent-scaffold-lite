@@ -27,6 +27,10 @@
             <artifactId>google-adk</artifactId>
         </dependency>
         <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-redis</artifactId>
+        </dependency>
+        <dependency>
             <groupId>com.google.adk</groupId>
             <artifactId>google-adk-spring-ai</artifactId>
         </dependency>

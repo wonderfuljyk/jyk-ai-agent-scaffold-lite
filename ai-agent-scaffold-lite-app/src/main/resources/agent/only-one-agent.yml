@@ -11,7 +11,7 @@ ai:
           module:
             ai-api:
               base-url: https://apis.itedus.cn
-              api-key: sk-L1HhsSyQcQA4ngHHFf87E87f4c624158A3748c7691E57089
+              api-key: sk-DrPz5LgvrwtGyjdgCf0383B29d69462d85968b810fE6E328
               completions-path: v1/chat/completions
               embeddings-path: v1/embeddings
             chat-model:
@@ -106,7 +106,7 @@ ai:
           module:
             ai-api:
               base-url: https://apis.itedus.cn
-              api-key: sk-L1HhsSyQcQA4ngHHFf87E87f4c624158A3748c7691E57089
+              api-key: sk-DrPz5LgvrwtGyjdgCf0383B29d69462d85968b810fE6E328
               completions-path: v1/chat/completions
               embeddings-path: v1/embeddings
             chat-model:

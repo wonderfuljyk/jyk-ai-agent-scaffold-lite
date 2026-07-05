@@ -6,5 +6,6 @@ import lombok.Data;
 public class ChatResponseDTO {
 
     private String content;
+    private String sessionId;
 
 }

@@ -138,6 +138,7 @@ public class AiAgentConfigTableVO {
             private String instruction;
             private String description;
             private String outputKey;
+            private String outputSchema;  // JSON Schema 校验输出质量
         }
 
         @Data

@@ -19,7 +19,7 @@ import java.util.stream.Collectors;
  * 当会话消息数超过阈值时，异步使用小模型将旧消息浓缩为摘要，
  * LPUSH 到 Redis 队列头部，实现"1条摘要 + 最近N条记录"的记忆窗口。
  *
- * @author xiaofuge bugstack.cn @小傅哥
+ * @author jyk
  */
 @Slf4j
 @Service
@@ -88,7 +88,7 @@ public class SessionSummaryService {
         // 生成简单摘要（基于规则拼接，后续可替换为调用小模型）
         String summary = buildSummary(conversationText, maxWords);
 
-        // LPUSH 摘要到队列头部
+        // 摘要存入独立 Redis Key，不受对话历史 LTRIM 影响
         ConversationMessageVO summaryMsg = ConversationMessageVO.builder()
                 .role("system")
                 .content(summary)

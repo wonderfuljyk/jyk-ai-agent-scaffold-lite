@@ -23,7 +23,7 @@ spring:
   data:
     redis:
       host: 127.0.0.1
-      port: 16379
+      port: 6379
       lettuce:
         pool:
           max-active: 8
@@ -70,6 +70,9 @@ agent:
       circuit-breaker-threshold: 5
       circuit-breaker-timeout-ms: 60000
       default-fallback-reply: "抱歉，AI 服务暂时不可用，请稍后重试。"
+      llm-timeout-seconds: 30
+      tool-timeout-seconds: 10
+      workflow-timeout-seconds: 120
 
   security:
     jwt:

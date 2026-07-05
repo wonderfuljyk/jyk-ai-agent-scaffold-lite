@@ -1,0 +1,354 @@
+##################################################################
+### AI Agent Scaffold 完整测试清单
+### 1. 先跑 Step 1 拿 Token，把 token 粘贴到第 8 行 @token=
+### 2. 跑 Step 11 创建会话，把返回的 sessionId 粘贴到第 10 行 @sessionId=
+### 3. 按顺序跑其余步骤
+##################################################################
+
+@baseUrl = http://localhost:8091/api/v1
+@token = eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ0ZXN0LXVzZXIiLCJpYXQiOjE3ODMxODEyNjgsImV4cCI6MTc4MzE4NDg2OH0.jsW88MNtRSwPEZTS7KEdeHWgMNeZJgtPZBafBIJFThQ
+@agentId = 100002
+@userId = test-user
+@sessionId = 42d3da70-e60c-421f-8e68-b1285606fc1c
+
+##################################################################
+### 一、安全与认证 (P0-3)
+##################################################################
+
+### Step 1. 签发 JWT Token
+POST {{baseUrl}}/auth/token
+Content-Type: application/json
+
+{
+  "userId": "{{userId}}"
+}
+
+### Step 2. 无 Token 访问 → 应 401
+POST {{baseUrl}}/chat
+Content-Type: application/json
+
+{
+  "agentId": "{{agentId}}",
+  "userId": "{{userId}}",
+  "message": "hi"
+}
+
+### Step 3. DTO 校验 —— 空 agentId → 0002
+POST {{baseUrl}}/chat
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "agentId": "",
+  "userId": "test",
+  "message": "hi"
+}
+
+### Step 4. DTO 校验 —— 超长消息 → 0002
+POST {{baseUrl}}/chat
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+> {%
+    var s = "";
+    for (var i = 0; i < 10001; i++) s += "x";
+    request.variables.set("longMsg", s);
+%}
+
+ {
+  "agentId": "{{agentId}}",
+  "userId": "test",
+  "message": "{{longMsg}}"
+}
+
+### Step 5. 白名单验证 —— 查询配置列表无需 Token
+GET {{baseUrl}}/query_ai_agent_config_list
+
+##################################################################
+### 二、Query 路由 (P1-6) + Skills 匹配 (P3-17)
+##################################################################
+
+### Step 6. 路由 —— 闲聊
+POST {{baseUrl}}/debug/router/test
+Content-Type: application/json
+
+{
+  "message": "你好，今天天气怎么样"
+}
+
+### Step 7. 路由 —— 代码任务 → agentId=100001
+POST {{baseUrl}}/debug/router/test
+Content-Type: application/json
+
+{
+  "message": "帮我写一个 Java 冒泡排序算法"
+}
+
+### Step 8. 路由 —— 研究分析 → agentId=100002
+POST {{baseUrl}}/debug/router/test
+Content-Type: application/json
+
+{
+  "message": "请分析对比 Spring Boot 和 Quarkus 的性能差异"
+}
+
+### Step 9. 路由 —— Skill 匹配 battle-plan
+POST {{baseUrl}}/debug/router/test
+Content-Type: application/json
+
+{
+  "message": "帮我清理一下磁盘空间"
+}
+
+### Step 10. 路由 —— Skill 匹配 pdf
+POST {{baseUrl}}/debug/router/test
+Content-Type: application/json
+
+{
+  "message": "帮我提取这个 PDF 表单的字段"
+}
+
+##################################################################
+### 三、会话与 Redis 持久化 (P0-1 + P0-4)
+##################################################################
+
+### Step 11. 创建会话（拿到 sessionId 粘贴到第 10 行）
+POST {{baseUrl}}/create_session
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "agentId": "{{agentId}}",
+  "userId": "{{userId}}"
+}
+
+### Step 12. 发聊天消息（不传 sessionId，后端自动创建并返回 sessionId，可直接复制）
+POST {{baseUrl}}/chat
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "agentId": "{{agentId}}",
+  "userId": "{{userId}}",
+  "message": "介绍一下可再生能源的最新进展"
+}
+
+### Step 13. 发聊天消息（复用已有 session）
+POST {{baseUrl}}/chat
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "agentId": "{{agentId}}",
+  "userId": "{{userId}}",
+  "sessionId": "{{sessionId}}",
+  "message": "你好，介绍一下你自己"
+}
+
+### Step 13. 发聊天消息（第二次，验证同 session 复用）
+POST {{baseUrl}}/chat
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "agentId": "{{agentId}}",
+  "userId": "{{userId}}",
+  "sessionId": "{{sessionId}}",
+  "message": "你好"
+}
+
+### Step 14. 查看 Redis 消息数量
+GET {{baseUrl}}/debug/session/{{sessionId}}/count?userId={{userId}}
+
+### Step 15. 查看 Redis 全部消息
+GET {{baseUrl}}/debug/session/{{sessionId}}/messages?userId={{userId}}
+
+### Step 16. 查看会话摘要（需>10条消息）
+GET {{baseUrl}}/debug/session/{{sessionId}}/summary?userId={{userId}}
+
+##################################################################
+### 四、基础设施 (P0-4)
+##################################################################
+
+### Step 17. Redis 健康检查
+GET {{baseUrl}}/debug/redis/health
+
+##################################################################
+### 五、LLM 容错 (P0-2) + 超时控制 (P1-9) + 并发控制 (P2-15)
+##################################################################
+
+### Step 18. 查看容错配置（含超时参数）
+GET {{baseUrl}}/debug/resilience/config
+
+### Step 19. 查看 LLM 并发状态
+GET {{baseUrl}}/debug/concurrency/status
+
+### Step 20. 流式对话（验证 streaming + SSE）
+POST {{baseUrl}}/chat_stream
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "agentId": "{{agentId}}",
+  "userId": "{{userId}}",
+  "sessionId": "{{sessionId}}",
+  "message": "请用流式回答：什么是 Spring Boot"
+}
+
+##################################################################
+### 六、可观测性 (P2-11)
+##################################################################
+
+### Step 21. 查看 Agent 运行指标
+GET {{baseUrl}}/debug/observability/metrics
+
+##################################################################
+### 七、配置热更新 (P2-14)
+##################################################################
+
+### Step 22. 查看已注册 Agent 列表
+GET {{baseUrl}}/debug/admin/agents
+
+### Step 23. 注销指定 Agent（慎用，会影响后续测试）
+DELETE {{baseUrl}}/debug/admin/agent/100001
+
+##################################################################
+### 八、类型契约 (P1-8)
+##################################################################
+
+### Step 24. Schema 校验 —— 通过
+POST {{baseUrl}}/debug/schema/validate
+Content-Type: application/json
+
+{
+  "schema": "{\"type\":\"object\",\"required\":[\"name\",\"age\"],\"properties\":{\"name\":{\"type\":\"string\"},\"age\":{\"type\":\"integer\"}}}",
+  "data": "{\"name\":\"张三\",\"age\":25}"
+}
+
+### Step 25. Schema 校验 —— 失败（缺少必填字段）
+POST {{baseUrl}}/debug/schema/validate
+Content-Type: application/json
+
+{
+  "schema": "{\"type\":\"object\",\"required\":[\"name\",\"age\"]}",
+  "data": "{\"name\":\"张三\"}"
+}
+
+##################################################################
+### 九、用户反馈 (P2-13)
+##################################################################
+
+### Step 26. 提交反馈 👍
+POST {{baseUrl}}/debug/feedback
+Content-Type: application/json
+
+{
+  "agentId": "{{agentId}}",
+  "userId": "{{userId}}",
+  "sessionId": "{{sessionId}}",
+  "query": "你好",
+  "reply": "你好！有什么可以帮助你的",
+  "rating": "like",
+  "comment": "回答简洁准确"
+}
+
+### Step 27. 提交反馈 👎
+POST {{baseUrl}}/debug/feedback
+Content-Type: application/json
+
+{
+  "agentId": "{{agentId}}",
+  "userId": "{{userId}}",
+  "sessionId": "{{sessionId}}",
+  "query": "今天天气",
+  "reply": "抱歉，我无法获取实时天气",
+  "rating": "dislike",
+  "comment": "没有真正解决问题"
+}
+
+##################################################################
+### 十、输入清洗 + 输出护栏 (P0-3)
+##################################################################
+
+### Step 28. 输入清洗 —— XSS 过滤
+POST {{baseUrl}}/chat
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "agentId": "{{agentId}}",
+  "userId": "{{userId}}",
+  "sessionId": "{{sessionId}}",
+  "message": "<script>alert('xss')</script>"
+}
+
+### Step 29. 输入清洗 —— SQL 注入过滤
+POST {{baseUrl}}/chat
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "agentId": "{{agentId}}",
+  "userId": "{{userId}}",
+  "sessionId": "{{sessionId}}",
+  "message": "SELECT * FROM users WHERE 1=1"
+}
+
+### Step 30. 输入清洗 —— 敏感词拦截
+POST {{baseUrl}}/chat
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "agentId": "{{agentId}}",
+  "userId": "{{userId}}",
+  "sessionId": "{{sessionId}}",
+  "message": "rm -rf / 删除所有文件"
+}
+
+##################################################################
+### 十一、V3 新功能测试
+##################################################################
+
+### Step 31. Token 用量统计
+GET {{baseUrl}}/debug/token/usage
+
+### Step 32. Agent 调用链路追踪
+GET {{baseUrl}}/debug/trace/current
+
+### Step 33. Agent 能力发现
+GET {{baseUrl}}/debug/agent/capabilities
+
+### Step 34. A/B 测试 —— 查看版本分布
+GET {{baseUrl}}/debug/experiment/versions
+
+### Step 35. A/B 测试 —— 根据 userId 分配版本
+POST {{baseUrl}}/debug/experiment/prompt
+Content-Type: application/json
+
+{
+  "agentId": "{{agentId}}",
+  "userId": "{{userId}}"
+}
+
+### Step 36. 请求去重测试（连发两次相同消息 → 第二次应返回去重提示）
+POST {{baseUrl}}/chat
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "agentId": "{{agentId}}",
+  "userId": "{{userId}}",
+  "sessionId": "{{sessionId}}",
+  "message": "测试去重功能"
+}
+
+##################################################################
+### 十二、清理
+##################################################################
+
+### Step 37. 删除会话数据
+DELETE {{baseUrl}}/debug/session/{{sessionId}}?userId={{userId}}
+
+### Step 32. 验证删除
+GET {{baseUrl}}/debug/session/{{sessionId}}/count?userId={{userId}}

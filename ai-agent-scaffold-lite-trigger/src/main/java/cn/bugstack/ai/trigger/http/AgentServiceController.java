@@ -101,6 +101,7 @@ public class AgentServiceController implements IAgentService {
 
         ChatResponseDTO responseDTO = new ChatResponseDTO();
         responseDTO.setContent(filteredContent);
+        responseDTO.setSessionId(sessionId);
 
         return Response.<ChatResponseDTO>builder()
                 .code(ResponseCode.SUCCESS.getCode())

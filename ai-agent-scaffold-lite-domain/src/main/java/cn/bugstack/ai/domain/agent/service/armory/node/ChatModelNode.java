@@ -5,11 +5,9 @@ import cn.bugstack.ai.domain.agent.model.valobj.AiAgentConfigTableVO;
 import cn.bugstack.ai.domain.agent.model.valobj.AiAgentRegisterVO;
 import cn.bugstack.ai.domain.agent.service.armory.AbstractArmorySupport;
 import cn.bugstack.ai.domain.agent.service.armory.factory.DefaultArmoryFactory;
-import cn.bugstack.ai.domain.agent.service.armory.matter.fallback.FallbackResponseService;
 import cn.bugstack.ai.domain.agent.service.armory.matter.mcp.client.TooMcpCreateService;
 import cn.bugstack.ai.domain.agent.service.armory.matter.mcp.client.factory.DefaultMcpClientFactory;
-import cn.bugstack.ai.domain.agent.service.armory.matter.patch.MySpringAI;
-import cn.bugstack.ai.domain.agent.service.armory.matter.resilience.LlmRetryHandler;
+import cn.bugstack.ai.domain.agent.service.armory.matter.resilience.SmartModelRouter;
 import cn.bugstack.ai.domain.agent.service.armory.matter.skills.ToolSkillsCreateService;
 import cn.bugstack.wrench.design.framework.tree.StrategyHandler;
 import lombok.extern.slf4j.Slf4j;
@@ -36,6 +34,9 @@ public class ChatModelNode extends AbstractArmorySupport {
 
     @Resource
     private ToolSkillsCreateService toolSkillsCreateService;
+
+    @Resource
+    private SmartModelRouter smartModelRouter;
 
     @Override
     protected AiAgentRegisterVO doApply(ArmoryCommandEntity requestParameter, DefaultArmoryFactory.DynamicContext dynamicContext) throws Exception {
@@ -71,10 +72,12 @@ public class ChatModelNode extends AbstractArmorySupport {
         }
 
         // 构建对话模型
+        String preferredModel = chatModelConfig.getModel();
+        String actualModel = smartModelRouter.selectModel(preferredModel);
         ChatModel chatModel = OpenAiChatModel.builder()
                 .openAiApi(openAiApi)
                 .defaultOptions(OpenAiChatOptions.builder()
-                        .model(chatModelConfig.getModel())
+                        .model(actualModel)
                         .toolCallbacks(toolCallbackList)
                         .build())
                 .build();

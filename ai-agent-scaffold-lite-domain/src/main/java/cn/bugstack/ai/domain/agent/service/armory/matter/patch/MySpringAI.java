@@ -1,8 +1,12 @@
 package cn.bugstack.ai.domain.agent.service.armory.matter.patch;
 
+import cn.bugstack.ai.domain.agent.model.valobj.properties.LlmResilienceProperties;
 import cn.bugstack.ai.domain.agent.service.armory.matter.fallback.FallbackResponseService;
+import cn.bugstack.ai.domain.agent.service.armory.matter.resilience.LlmConcurrencyLimiter;
 import cn.bugstack.ai.domain.agent.service.armory.matter.resilience.LlmExhaustedException;
 import cn.bugstack.ai.domain.agent.service.armory.matter.resilience.LlmRetryHandler;
+import cn.bugstack.ai.domain.agent.service.observability.AgentObservabilityService;
+import cn.bugstack.ai.domain.agent.service.observability.TokenUsageTracker;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.adk.models.BaseLlm;
 import com.google.adk.models.BaseLlmConnection;
@@ -27,11 +31,7 @@ import reactor.core.publisher.Flux;
 import java.util.List;
 import java.util.Objects;
 
-/**
- * Spring AI 补丁
- * @author xiaofuge bugstack.cn @小傅哥
- * 2026/1/9 08:20
- */
+
 @Slf4j
 public class MySpringAI extends BaseLlm {
 
@@ -48,6 +48,36 @@ public class MySpringAI extends BaseLlm {
     /** 降级回复服务（setter 注入，可选） */
     @Setter
     private FallbackResponseService fallbackResponseService;
+
+    /** 容错配置属性（setter 注入，可选） */
+    @Setter
+    private LlmResilienceProperties resilienceProperties;
+
+    /** LLM 并发控制（setter 注入，可选） */
+    @Setter
+    private LlmConcurrencyLimiter concurrencyLimiter;
+
+    /** 可观测性服务（setter 注入，可选） */
+    @Setter
+    private AgentObservabilityService observabilityService;
+
+    @Setter
+    private TokenUsageTracker tokenUsageTracker;
+
+    @Setter
+    private cn.bugstack.ai.domain.agent.service.observability.AgentTraceContext agentTraceContext;
+
+    @Setter
+    private String agentName;
+
+    @Setter
+    private java.util.concurrent.ThreadPoolExecutor threadPoolExecutor;
+
+    @Setter
+    private cn.bugstack.ai.domain.agent.service.armory.matter.contract.SchemaValidator schemaValidator;
+
+    @Setter
+    private String outputSchema;
 
     public MySpringAI(ChatModel chatModel) {
         super(extractModelName(chatModel));
@@ -169,45 +199,105 @@ public class MySpringAI extends BaseLlm {
     }
 
     private Flowable<LlmResponse> generateContent(LlmRequest llmRequest) {
+        // defer 延迟执行 + subscribeOn 异步线程，让 ParallelAgent 真正并行
+        return Flowable.defer(() -> {
         SpringAIObservabilityHandler.RequestContext context =
                 observabilityHandler.startRequest(model(), "chat");
 
-        try {
-            Prompt prompt = messageConverter.toLlmPrompt(llmRequest);
-            observabilityHandler.logRequest(prompt.toString(), model());
+        Prompt prompt = messageConverter.toLlmPrompt(llmRequest);
+        observabilityHandler.logRequest(prompt.toString(), model());
 
-            // 带重试的 LLM 调用
+        // 链路追踪：记录 Agent 执行开始
+        if (agentTraceContext != null && agentName != null) {
+            agentTraceContext.startAgent(agentName);
+        }
+
+        // 并发控制：获取信号量许可
+        boolean acquired = false;
+        if (concurrencyLimiter != null) {
+            acquired = concurrencyLimiter.tryAcquire(10000);
+            if (!acquired) {
+                throw new RuntimeException("LLM 并发已满，请稍后重试");
+            }
+        }
+
+        var timer = observabilityService != null ? observabilityService.startTimer() : null;
+        boolean success = false;
+        try {
+                // 带重试 + 超时的 LLM 调用
+                long timeoutSec = resilienceProperties != null
+                    ? resilienceProperties.getLlmTimeoutSeconds() : 30;
+
             ChatResponse chatResponse;
             if (llmRetryHandler != null) {
                 chatResponse = llmRetryHandler.executeWithRetry(
-                        () -> chatModel.call(prompt), model());
+                        () -> {
+                            try {
+                                return java.util.concurrent.CompletableFuture
+                                        .supplyAsync(() -> chatModel.call(prompt))
+                                        .get(timeoutSec, java.util.concurrent.TimeUnit.SECONDS);
+                            } catch (java.util.concurrent.TimeoutException e) {
+                                throw new RuntimeException("LLM 调用超时 (" + timeoutSec + "s)", e);
+                            } catch (Exception e) {
+                                throw new RuntimeException(e);
+                            }
+                        }, model());
             } else {
-                chatResponse = chatModel.call(prompt);
+                try {
+                    chatResponse = java.util.concurrent.CompletableFuture
+                            .supplyAsync(() -> chatModel.call(prompt))
+                            .get(timeoutSec, java.util.concurrent.TimeUnit.SECONDS);
+                } catch (java.util.concurrent.TimeoutException e) {
+                    throw new RuntimeException("LLM 调用超时 (" + timeoutSec + "s)", e);
+                } catch (Exception e) {
+                    throw new RuntimeException(e);
+                }
             }
 
             LlmResponse llmResponse = messageConverter.toLlmResponse(chatResponse);
-
             observabilityHandler.logResponse(extractTextFromResponse(llmResponse), model());
-
-            // Extract token counts if available
             int totalTokens = extractTokenCount(chatResponse);
             int inputTokens = extractInputTokenCount(chatResponse);
             int outputTokens = extractOutputTokenCount(chatResponse);
-
             observabilityHandler.recordSuccess(context, totalTokens, inputTokens, outputTokens);
+            if (tokenUsageTracker != null && totalTokens > 0) {
+                tokenUsageTracker.recordUsage(model(), inputTokens, outputTokens, "unknown");
+            }
+            // Agent 输出质量校验
+            if (schemaValidator != null && outputSchema != null && !outputSchema.isBlank()) {
+                String outputText = extractTextFromResponse(llmResponse);
+                var validationResult = schemaValidator.validate(outputSchema, outputText);
+                if (!validationResult.valid()) {
+                    log.warn("Agent 输出 Schema 校验失败 agent:{} errors:{}", agentName, validationResult.errors());
+                }
+            }
+            success = true;
             return Flowable.just(llmResponse);
 
         } catch (LlmExhaustedException e) {
             log.error("LLM 调用重试耗尽，触发降级 model:{}", model(), e);
             observabilityHandler.recordError(context, e);
+            if (observabilityService != null) observabilityService.recordLlmCall(
+                    timer != null ? timer.elapsedMs() : 0, false);
             return generateFallbackResponse(llmRequest, context);
 
         } catch (Exception e) {
             observabilityHandler.recordError(context, e);
             SpringAIErrorMapper.MappedError mappedError = SpringAIErrorMapper.mapError(e);
-
+            if (observabilityService != null) observabilityService.recordLlmCall(
+                    timer != null ? timer.elapsedMs() : 0, false);
             return Flowable.error(new RuntimeException(mappedError.getNormalizedMessage(), e));
+        } finally {
+            if (agentTraceContext != null && agentName != null) {
+                agentTraceContext.endAgent(agentName);
+            }
+            if (acquired && concurrencyLimiter != null) concurrencyLimiter.release();
+            if (success && observabilityService != null && timer != null)
+                observabilityService.recordLlmCall(timer.elapsedMs(), true);
         }
+        }).subscribeOn(io.reactivex.rxjava3.schedulers.Schedulers.from(
+                threadPoolExecutor != null ? threadPoolExecutor
+                        : java.util.concurrent.Executors.newFixedThreadPool(4)));  // 复用项目线程池
     }
 
     /**

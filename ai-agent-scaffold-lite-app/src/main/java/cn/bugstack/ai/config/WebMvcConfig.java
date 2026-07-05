@@ -7,7 +7,12 @@ import org.springframework.web.servlet.config.annotation.CorsRegistry;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
-
+/**
+ * Web MVC 配置
+ * 注册限流拦截器 + CORS 白名单
+ *
+ * @author jyk
+ */
 @Configuration
 public class WebMvcConfig implements WebMvcConfigurer {
 

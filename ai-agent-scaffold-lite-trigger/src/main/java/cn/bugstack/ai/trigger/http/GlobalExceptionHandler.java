@@ -13,7 +13,7 @@ import java.util.stream.Collectors;
 /**
  * 全局异常处理器
  * 统一处理 Controller 层的各类异常，避免在每个方法中重复 try-catch
- * @author xiaofuge bugstack.cn @小傅哥
+ * @author jyk
  */
 @Slf4j
 @RestControllerAdvice
@@ -52,9 +52,11 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(Exception.class)
     public Response<Void> handleGeneralException(Exception e) {
         log.error("未知异常", e);
+        String detail = e.getClass().getSimpleName() + ": " +
+                (e.getMessage() != null ? e.getMessage() : "(无消息)");
         return Response.<Void>builder()
                 .code(ResponseCode.UN_ERROR.getCode())
-                .info(ResponseCode.UN_ERROR.getInfo())
+                .info(detail)
                 .build();
     }
 }
