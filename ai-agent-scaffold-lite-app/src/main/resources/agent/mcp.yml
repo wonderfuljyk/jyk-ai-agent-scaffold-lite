@@ -1,0 +1,27 @@
+testAgent03:
+  app-name: CSDNPublisher
+  agent:
+    agent-id: 100003
+    agent-name: CSDN博文发布助手
+    agent-desc: 一键发布 Markdown 文章到 CSDN 博客
+  module:
+    ai-api:
+      base-url: https://apis.itedus.cn
+      api-key: sk-DrPz5LgvrwtGyjdgCf0383B29d69462d85968b810fE6E328
+      completions-path: v1/chat/completions
+      embeddings-path: v1/embeddings
+    chat-model:
+      model: gpt-4.1
+      tool-mcp-list:
+        - local:
+            name: csdnToolCallbackProvider
+    agents:
+      - name: onlyAgent
+        description: CSDN博文管理助手
+        instruction: |
+          你是 CSDN 博文管理助手，负责发布文章到 CSDN。
+          当用户提供标题、内容、标签、简述后，调用 saveArticle 工具发布。
+          信息不全时主动询问，发布后简短告知结果。
+        output-key: csdn_result
+    runner:
+      agent-name: onlyAgent

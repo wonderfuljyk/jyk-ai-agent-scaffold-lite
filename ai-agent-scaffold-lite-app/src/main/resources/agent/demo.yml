@@ -2,71 +2,101 @@ ai:
   agent:
     config:
       tables:
-        demoAgent:
-          app-name: demoAgent
+        drawIoAgent:
+          app-name: drawIoAgent
           agent:
-            agent-id: 100000
-            agent-name: demoAgent
-            agent-desc: demoAgent
+            agent-id: 300000
+            agent-name: AI交互式绘图智能体
+            agent-desc: 人 + AI + Draw.io，交互式对话完成 draw.io 绘图。
           module:
             ai-api:
               base-url: https://apis.itedus.cn
-              api-key: sk-tilEamI7Db17hSx71748E9DbB47449D186Ac466542Eb63A6
+              api-key: sk-DrPz5LgvrwtGyjdgCf0383B29d69462d85968b810fE6E328
               completions-path: v1/chat/completions
               embeddings-path: v1/embeddings
             chat-model:
-              model: gpt-4.1
+              model: gpt-4o
               tool-mcp-list:
-                # sse格式结构，配置所需的 mcp 服务
+                # 百度搜索key，通过 https://console.bce.baidu.com/iam/?_=1753597622044#/iam/apikey/list 申请
                 - sse:
                     name: baidu-search
                     base-uri: http://appbuilder.baidu.com/v2/ai_search/mcp/
-                    sse-endpoint: sse?api_key=bce-v3/ALTAK-WjK8NIh3txZo7rXXEjhri/e2f09d53de961bcaf2609b76c7c7a7e6d0f05da3
+                    see-endpoint: sse?api_key=bce-v3/ALTAK-WjK8NIh3txZo7rXXEjhri/e2f09d53de961bcaf2609b76c7c7a7e6d0f05da3
                     request-timeout: 500000
-                # local本地实现的，mcp 服务，在 ai-agent-scaffold-lite-domain 模块下，cn.bugstack.ai.domain.agent.service.armory.matter.mcp.server 下实现服务
                 - local:
                     name: myToolCallbackProvider
-              # 可以配置 skills 技能书，放到 resource/agent/skills 下。
               tool-skills-list:
                 - type: resource
                   path: agent/skills
-            # agents 下可以按需配置多个单一智能体，这些智能体可以在 agent-workflows 组合，使用 loop 循环、parallel 并行、sequential 串行来组装。你需要根据用户的诉求，配置一套智能体组合。
             agents:
-              # 配置智能体，name 名称、description 描述、instruction 指令提示词、output-key 输出结果(按需选择)。如果需要使用输出结果，需要在下一个智能体里，使用 {输出key} 来获得。
-              - name: agentDemo01，英文名称
-                description: 智能体用途描述
+              # 1. 需求分析与检索智能体
+              - name: agent_analyst
+                description: 负责理解用户意图，调用工具检索信息，并决定是请求补充信息还是继续绘图。
                 instruction: |
-                  智能体指令 prompt 详细介绍
-                output-key: my_01_out_result
-              # 配置智能体，name 名称、description 描述、instruction 指令提示词、output-key 输出结果(按需选择)。如果需要使用输出结果，需要在下一个智能体里，使用 {输出key} 来获得。
-              - name: agentDemo02，英文名称
-                description: 智能体用途描述
+                  你是一个专业的需求分析师。你的任务是分析用户的绘图请求。
+                  1. 如果用户提供了具体的上下文或需要引用外部知识（如Git仓库、本地文件），请使用可用的工具（MCP）进行检索和分析。
+                  2. 分析用户的意图：
+                     - 如果用户的描述模糊、不完整，无法直接生成图表，你需要返回 JSON 格式要求用户补充信息。
+                       格式：{"type": "user", "content": "请补充关于...的具体信息"}
+                     - 如果用户意图清晰，请整理出详细的绘图需求（图表类型、节点、关系、布局要求等）。
+                  3. 输出你的分析结果。
+                output-key: analysis_result
+
+              # 2. 绘图执行智能体
+              - name: agent_drawer
+                description: 根据分析结果生成 Draw.io 的 XML 数据。
                 instruction: |
-                  智能体指令 prompt 详细介绍，{my_01_out_result}
-                output-key: my_02_out_result
-            # agent-workflows 是智能体工作流，可以被组合。
-            # 1. loop 作用，循环执行 sub-agents 下的每个智能体，sub-agents 下配置的是 agents 下的单一智能体。配置后，它的执行方式是；分析、规划、执行，可以配置最大循环步骤，max-iterations
-            # 2. parallel 作用，并行执行 sub-agents 下的每个智能体，sub-agents 下配置的是 agents 下的单一智能体。配置后，它的执行方式是；一起执行这些配置的子智能体，获取结果。
-            # 3. sequential 作用，串行执行 sub-agents 下的每个智能体，sub-agents 下配置的是 agents 下的智能体，以及 loop 智能体名称、parallel 智能体名称。它的用途就是把 sub-agents 下的智能体顺序的执行，可以是子智能体和 loop、parallel 智能体。
+                  你是一个 Draw.io 绘图专家。请根据输入 {analysis_result} 进行操作：
+                  1. 如果输入是 {"type": "user", ...}，请直接原样输出该 JSON。
+                  2. 如果输入是详细的绘图需求：
+                     - 设计图表的结构（UML、流程图、时序图等）。
+                     - 生成符合 Draw.io 规范的 XML 代码。
+                     - 确保节点布局合理，逻辑清晰，连线不能交叉等。
+                     - 输出生成的 XML 内容。
+                output-key: draft_diagram
+
+              # 3. 检查与优化智能体
+              - name: agent_reviewer
+                description: 检查绘图结果，确保无连线交叉等问题，并格式化最终输出。
+                instruction: |
+                  你是一个图表质量检查员。请审查输入 {draft_diagram}：
+                  1. 如果输入是 {"type": "user", ...}，请直接原样输出。
+                  2. 如果输入是 XML 代码：
+                     - 检查连线是否混乱或有严重的交叉（在文本层面尽力优化布局逻辑）。
+                     - 检查 XML 语法是否正确。
+                     - 如果有问题，请尝试修正 XML。
+                     - 最终输出必须严格符合 JSON 格式：
+                       {"type": "drawio", "content": "这里放最终的XML字符串"}
+                output-key: final_result
+
             agent-workflows:
+              # 案例；定义一个循环工作流（示例），用于反复优化绘图（需要在 instruction 中支持反馈机制才能生效）
               - type: loop
-                name: loop01，英文名称
-                description: 循环智能体用途描述
-                max-iterations: 最大循环步骤
+                name: loop_refinement
+                description: 循环优化绘图结果
+                max-iterations: 3
                 sub-agents:
-                  - 可以配置 agents 下的单一智能体
-                  - 可以配置 agents 下的单一智能体
+                  - agent_drawer
+                  - agent_reviewer
+
+              # 案例；定义一个并行工作流（示例），可以并行生成多个方案（需要后续有 Agent 进行选择）
               - type: parallel
-                name: parallel01，英文名称
-                description: 并行智能体用途描述
+                name: parallel_generation
+                description: 并行生成多个绘图方案
                 sub-agents:
-                  - 可以配置 agents 下的智能体
-                  - 可以配置 agents 下的智能体
+                  - agent_drawer
+                  - agent_drawer
+
+              # 对外；定义一个串行工作流，按顺序执行分析、绘图、检查
               - type: sequential
-                name: sequential01
-                description: 串行智能体用途描述
+                name: sequential_draw_process
+                description: 标准绘图流程：分析 -> 绘图 -> 检查
                 sub-agents:
-                  - 配置 agents 下的智能体名称，可以按需配置多个
-                  - 配置 agent-workflows 下的智能体名称，如 loop01、parallel01，可以按需配置多个
+                  - agent_analyst
+                  - agent_drawer
+                  - agent_reviewer
+
             runner:
-              agent-name: 指定运行的智能体入口，可以是 agents 下的单个智能体名称，也可以是 agent-workflows 配置的工作流智能体名称，如，agentDemo01、loop01、parallel01、sequential01
+              # 指定入口为串行工作流，这是最稳健的配置
+              agent-name: sequential_draw_process
+

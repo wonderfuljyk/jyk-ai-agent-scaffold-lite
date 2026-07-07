@@ -1,5 +1,6 @@
 package cn.bugstack.ai;
 
+import cn.bugstack.ai.domain.agent.service.armory.matter.mcp.csdn.CSDNArticleService;
 import cn.bugstack.ai.domain.agent.service.armory.matter.mcp.server.MyTestMcpService;
 import org.springframework.ai.tool.ToolCallbackProvider;
 import org.springframework.ai.tool.method.MethodToolCallbackProvider;
@@ -19,6 +20,11 @@ public class Application {
     @Bean("myToolCallbackProvider")
     public ToolCallbackProvider testTools(MyTestMcpService testService) {
         return MethodToolCallbackProvider.builder().toolObjects(testService).build();
+    }
+
+    @Bean("csdnToolCallbackProvider")
+    public ToolCallbackProvider csdnTools(CSDNArticleService csdnService) {
+        return MethodToolCallbackProvider.builder().toolObjects(csdnService).build();
     }
 
 }

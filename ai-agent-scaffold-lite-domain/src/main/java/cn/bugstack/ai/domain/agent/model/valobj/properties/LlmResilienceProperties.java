@@ -36,10 +36,10 @@ public class LlmResilienceProperties {
     private String defaultFallbackReply = "抱歉，AI 服务暂时不可用，请稍后重试。";
 
     /** LLM 调用超时（秒） */
-    private long llmTimeoutSeconds = 30;
+    private long llmTimeoutSeconds = 300;
 
     /** 工具调用超时（秒） */
-    private long toolTimeoutSeconds = 10;
+    private long toolTimeoutSeconds = 100;
 
     /** 工作流整体超时（秒） */
     private long workflowTimeoutSeconds = 120;

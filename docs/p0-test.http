@@ -5,11 +5,11 @@
 ### 3. 按顺序跑其余步骤
 ##################################################################
 
-@baseUrl = http://localhost:8091/api/v1
-@token = eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ0ZXN0LXVzZXIiLCJpYXQiOjE3ODMxODEyNjgsImV4cCI6MTc4MzE4NDg2OH0.jsW88MNtRSwPEZTS7KEdeHWgMNeZJgtPZBafBIJFThQ
-@agentId = 100002
+@baseUrl = http://localhost:8092/api/v1
+@token = eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ0ZXN0LXVzZXIiLCJpYXQiOjE3ODM0MDM0NTEsImV4cCI6MTc4MzQwNzA1MX0.L4TEXhFGvrQdjIkgupYbARI0MLq6-sV8cs5tI1TgfcQ
+@agentId = 100003
 @userId = test-user
-@sessionId = 42d3da70-e60c-421f-8e68-b1285606fc1c
+@sessionId = 80a09559-defc-420e-beb2-3c1c7b42a251
 
 ##################################################################
 ### 一、安全与认证 (P0-3)
@@ -130,7 +130,7 @@ Authorization: Bearer {{token}}
 {
   "agentId": "{{agentId}}",
   "userId": "{{userId}}",
-  "message": "介绍一下可再生能源的最新进展"
+  "message": "帮我发布一条 csdn 帖子 标题:RAG相关技术 内容：介绍RAG相关 标签：SpringAI,Java, 技术文章简述：简单介绍RAG，"
 }
 
 ### Step 13. 发聊天消息（复用已有 session）

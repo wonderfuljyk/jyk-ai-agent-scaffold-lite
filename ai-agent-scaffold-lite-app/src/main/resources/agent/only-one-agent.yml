@@ -105,12 +105,12 @@ ai:
               agent-desc: 单一智能体
           module:
             ai-api:
-              base-url: https://apis.itedus.cn
-              api-key: sk-DrPz5LgvrwtGyjdgCf0383B29d69462d85968b810fE6E328
+              base-url: https://api.deepseek.com  # 直连 DeepSeek API
+              api-key: sk-7ee6bd4f0b0146d7adbb28d4c86fbad0
               completions-path: v1/chat/completions
-              embeddings-path: v1/embeddings
+
             chat-model:
-              model: gpt-4.1
+              model: deepseek-v4-pro  # 或 deepseek-v4-flash
               tool-mcp-list:
 #                - sse:
 #                    name: baidu-search
@@ -119,6 +119,8 @@ ai:
 #                    request-timeout: 500000
                 - local:
                     name: myToolCallbackProvider
+                - local:
+                    name: csdnToolCallbackProvider
               tool-skills-list:
                 - type: resource
                   path: agent/skills
@@ -127,12 +129,25 @@ ai:
 #                  path: /Users/fuzhengwei/coding/gitcode/KnowledgePlanet/ai-agent-scaffold/ai-agent-scaffold-lite/docs/dev-ops/agent/skills
             agents:
               - name: onlyAgent
-                description: 小傅哥学习项目计划
+                description: csdn博文管理助手你是
                 instruction: |
-                  通过百度检索小傅哥编程实战项目，并根据检索内容，针对初学用户给出学习计划。
+                  你是 CSDN 博文管理助手。
+
+                  ## 核心规则（必须遵守）
+                  1. 当用户提供完整信息（标题、内容、标签、简述）后，**必须**调用 saveArticle 工具,并且对用户内容进行扩写到500字左右
+                  2. **绝对禁止**自己编造"发布成功"的消息
+                  3. 发布结果以工具返回为准，不要自己改写
+                  4. 如果工具调用失败，如实告知用户
+
+                  ## 工具调用示例
+                  用户提供完整信息后，你必须执行：
+                  saveArticle(title="xxx", markdowncontent="xxx", tags="xxx", Description="xxx")
+
+                  不要自己生成成功消息，等待工具返回结果。
+                output-key: csdn_result
+
             runner:
               agent-name: onlyAgent
               plugin-name-list:
                 - myTestPlugin
                 - myLogPlugin
-                - prometheusMonitoringPlugin

@@ -1,5 +1,5 @@
 server:
-  port: 8091
+  port: 8092
 
 # 线程池配置
 thread:
@@ -20,6 +20,9 @@ spring:
 #     - classpath:agent/test-agent.yml
       - classpath:agent/only-one-agent.yml
 #      - classpath:agent/parallel_research_app.yml
+#      - classpath:agent/demo.yml
+#      - classpath:agent/mcp.yml
+
   data:
     redis:
       host: 127.0.0.1
@@ -30,11 +33,7 @@ spring:
           max-idle: 8
           min-idle: 0
           max-wait: -1ms
-  datasource:
-    username: root
-    password: 123456
-    url: jdbc:mysql://127.0.0.1:3306/xfg_frame_archetype?useUnicode=true&characterEncoding=utf8&autoReconnect=true&zeroDateTimeBehavior=convertToNull&serverTimezone=UTC&useSSL=true
-    driver-class-name: com.mysql.cj.jdbc.Driver
+
   hikari:
     pool-name: Retail_HikariCP
     minimum-idle: 15 #最小空闲连接数量
@@ -70,14 +69,21 @@ agent:
       circuit-breaker-threshold: 5
       circuit-breaker-timeout-ms: 60000
       default-fallback-reply: "抱歉，AI 服务暂时不可用，请稍后重试。"
-      llm-timeout-seconds: 30
-      tool-timeout-seconds: 10
+      llm-timeout-seconds: 300
+      tool-timeout-seconds: 100
       workflow-timeout-seconds: 120
 
   security:
     jwt:
       secret: ${JWT_SECRET:change-me-in-production-use-env-var}
       expiration-ms: 3600000
+
+csdn:
+  api:
+#    cookie: "UN=2503_90353997; Hm_ct_6bcd52f51e9b3dce32bec4a3997715ac=6525*1*10_18657009060-1733640018690-359919!5744*1*2503_90353997; c_ins_prid=-; c_ins_rid=1761560736123_691384; c_ins_fref=https://app-blog.csdn.net/; c_ins_fpage=/index.html; c_ins_um=-; c_dl_fref=https://so.csdn.net/so/search; uuid_tt_dd=10_30833398640-1768400577474-576146; fid=20_36786053067-1768400583268-593212; UserName=2503_90353997; UserInfo=ad6eb4bf891d4fbf8c1775b6d8fa5c8e; UserToken=ad6eb4bf891d4fbf8c1775b6d8fa5c8e; UserNick=%E6%97%A0%E4%B8%8E%E4%BC%A6%E6%AF%94%E7%9A%84jyk; AU=D59; BT=1772877301575; p_uid=U010000; __gads=ID=9f573cb2f3d41e45:T=1768031172:RT=1780471101:S=ALNI_Ma-an6N1EiITxQZY_gla75LJ0Y5rg; __gpi=UID=000011e0e11a95d7:T=1768031172:RT=1780471101:S=ALNI_MYLgzMcPGkTTeai9xpXHJP5OnCfpA; csdn_newcert_2503_90353997=1; c_ab_test=1; c_utm_source=cknow_so_nontop_query; creative_btn_mp=3; c_dl_prid=1783323751727_307978; c_dl_rid=1783323756881_966450; c_dl_fpage=/download/cqn2bd2b/85654281; c_dl_um=distribute.pc_search_result.none-task-download-2%7Eall%7EElasticSearch%7Esearch_v2-1-12251149-null-null.142%5Ev102%5Epc_search_result_base9; _clck=tybwok%5E2%5Eg7i%5E0%5E1803; _clsk=7rg2pa%5E1783323777606%5E2%5E1%5Ey.clarity.ms%2Fcollect; dc_session_id=10_1783388257913.456696; c_first_ref=default; c_first_page=https%3A//www.csdn.net/; c_dsid=11_1783388260704.528086; c_segment=2; c-sidebar-collapse=0; Hm_lvt_6bcd52f51e9b3dce32bec4a3997715ac=1782185128,1782264920,1783323742,1783388268; HMACCOUNT=52FF1D41BC45643C; dc_sid=deafff1023562e74f23f3a00953c5f4d; utm_source=cknow_so_nontop_query; c_page_id=default; Hm_lpvt_6bcd52f51e9b3dce32bec4a3997715ac=1783388448; fe_request_id=1783388447650_2646_8698461; c_pref=https%3A//www.csdn.net/; c_ref=https%3A//so.csdn.net/so/search%3Fspm%3D1000.2115.3001.4501%26q%3Dpycharm%25E6%25BF%2580%25E6%25B4%25BB%26t%3D%26u%3D; log_Id_click=10; dc_tos=ths7c0; log_Id_pv=7; log_Id_view=199"
+#    cookie: "UN=2503_90353997; Hm_ct_6bcd52f51e9b3dce32bec4a3997715ac=6525*1*10_18657009060-1733640018690-359919!5744*1*2503_90353997; c_ins_prid=-; c_ins_rid=1761560736123_691384; c_ins_fref=https://app-blog.csdn.net/; c_ins_fpage=/index.html; c_ins_um=-; c_dl_fref=https://so.csdn.net/so/search; uuid_tt_dd=10_30833398640-1768400577474-576146; fid=20_36786053067-1768400583268-593212; UserName=2503_90353997; UserInfo=ad6eb4bf891d4fbf8c1775b6d8fa5c8e; UserToken=ad6eb4bf891d4fbf8c1775b6d8fa5c8e; UserNick=%E6%97%A0%E4%B8%8E%E4%BC%A6%E6%AF%94%E7%9A%84jyk; AU=D59; BT=1772877301575; p_uid=U010000; __gads=ID=9f573cb2f3d41e45:T=1768031172:RT=1780471101:S=ALNI_Ma-an6N1EiITxQZY_gla75LJ0Y5rg; __gpi=UID=000011e0e11a95d7:T=1768031172:RT=1780471101:S=ALNI_MYLgzMcPGkTTeai9xpXHJP5OnCfpA; csdn_newcert_2503_90353997=1; c_ab_test=1; c_utm_source=cknow_so_nontop_query; creative_btn_mp=3; c_dl_prid=1783323751727_307978; c_dl_rid=1783323756881_966450; c_dl_fpage=/download/cqn2bd2b/85654281; c_dl_um=distribute.pc_search_result.none-task-download-2%7Eall%7EElasticSearch%7Esearch_v2-1-12251149-null-null.142%5Ev102%5Epc_search_result_base9; dc_session_id=10_1783388257913.456696; c_first_ref=default; c_segment=2; c-sidebar-collapse=0; Hm_lvt_6bcd52f51e9b3dce32bec4a3997715ac=1782185128,1782264920,1783323742,1783388268; HMACCOUNT=52FF1D41BC45643C; dc_sid=deafff1023562e74f23f3a00953c5f4d; utm_source=cknow_so_nontop_query; fe_request_id=1783388447650_2646_8698461; _clck=tybwok%5E2%5Eg7j%5E0%5E1803; c_first_page=https%3A//blog.csdn.net/2503_90353997; c_dsid=11_1783388627744.118748; _clsk=teg1uf%5E1783389308594%5E11%5E0%5Ey.clarity.ms%2Fcollect; c_pref=https%3A//blog.csdn.net/2503_90353997%3Fspm%3D1018.2226.3001.5343; c_ref=https%3A//mp.csdn.net/mp_blog/creation/editor%3Fspm%3D1001.2014.3001.4503; c_page_id=default; Hm_lpvt_6bcd52f51e9b3dce32bec4a3997715ac=1783389543; log_Id_pv=36; log_Id_view=467; log_Id_click=17; dc_tos=ths87k; SESSION=d1b964a9-40ab-46f7-a56b-2e89e70f68b7"
+#    cookie: "UN=2503_90353997; Hm_ct_6bcd52f51e9b3dce32bec4a3997715ac=6525*1*10_18657009060-1733640018690-359919!5744*1*2503_90353997; c_ins_prid=-; c_ins_rid=1761560736123_691384; c_ins_fref=https://app-blog.csdn.net/; c_ins_fpage=/index.html; c_ins_um=-; c_dl_fref=https://so.csdn.net/so/search; uuid_tt_dd=10_30833398640-1768400577474-576146; fid=20_36786053067-1768400583268-593212; UserName=2503_90353997; UserInfo=ad6eb4bf891d4fbf8c1775b6d8fa5c8e; UserToken=ad6eb4bf891d4fbf8c1775b6d8fa5c8e; UserNick=%E6%97%A0%E4%B8%8E%E4%BC%A6%E6%AF%94%E7%9A%84jyk; AU=D59; BT=1772877301575; p_uid=U010000; csdn_newcert_2503_90353997=1; Hm_lvt_6bcd52f51e9b3dce32bec4a3997715ac=1775553919,1775713743,1775803618,1776259900; __gads=ID=9f573cb2f3d41e45:T=1768031172:RT=1776259955:S=ALNI_Ma-an6N1EiITxQZY_gla75LJ0Y5rg; __gpi=UID=000011e0e11a95d7:T=1768031172:RT=1776259955:S=ALNI_MYLgzMcPGkTTeai9xpXHJP5OnCfpA; __eoi=ID=edcfe00d6d79a546:T=1765367492:RT=1776259955:S=AA-Afja5SdXrCt6wcFjZLOWUQDQj; c_ab_test=1; c_utm_source=cknow_so_nontop_query; historyList-new=%5B%5D; c_dl_prid=1765366775980_446108; c_dl_rid=1779606953772_683656; c_dl_fpage=/download/shangat/2689880; c_dl_um=distribute.pc_search_result.none-task-blog-2%7Eall%7Esobaiduend%7Edefault-1-160413900-null-null.142%5Ev102%5Epc_search_result_base9; fe_request_id=1779609492462_2312_8929231; dc_sid=ca6a221747b69da41c7d72769d78c47f; dc_session_id=11_1779689604975.022720; c_first_ref=articles.zsxq.com; c_first_page=https%3A//editor.csdn.net/md/; c_dsid=11_1779689604977.215820; c_segment=2; SESSION=5bc96bbd-12ba-4499-ae0f-d400a45d32f2; creative_btn_mp=3; _clck=tybwok%5E2%5Eg6c%5E0%5E1803; _clsk=yjfsdc%5E1779691832251%5E2%5E0%5Ei.clarity.ms%2Fcollect; c_pref=https%3A//editor.csdn.net/; c_ref=https%3A//blog.csdn.net/2503_90353997%3Fspm%3D1011.2480.3001.5343; c_page_id=default; log_Id_pv=17; dc_tos=tfkz6g; log_Id_view=558; log_Id_click=22"
+    categories: "后端"
 
 # 日志
 logging:
