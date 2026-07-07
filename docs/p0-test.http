@@ -6,10 +6,10 @@
 ##################################################################
 
 @baseUrl = http://localhost:8092/api/v1
-@token = eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ0ZXN0LXVzZXIiLCJpYXQiOjE3ODM0MDM0NTEsImV4cCI6MTc4MzQwNzA1MX0.L4TEXhFGvrQdjIkgupYbARI0MLq6-sV8cs5tI1TgfcQ
-@agentId = 100003
+@token = eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ0ZXN0LXVzZXIiLCJpYXQiOjE3ODM0MzAzNTksImV4cCI6MTc4MzQzMzk1OX0.OB4M_E5eRQ1DW1wiFs2QfE2mQ08GXsZtfAz51C06lu8
+@agentId = 100002
 @userId = test-user
-@sessionId = 80a09559-defc-420e-beb2-3c1c7b42a251
+@sessionId = 0c897ff8-1070-4476-9ec1-7336f1424c21
 
 ##################################################################
 ### 一、安全与认证 (P0-3)
@@ -130,7 +130,7 @@ Authorization: Bearer {{token}}
 {
   "agentId": "{{agentId}}",
   "userId": "{{userId}}",
-  "message": "帮我发布一条 csdn 帖子 标题:RAG相关技术 内容：介绍RAG相关 标签：SpringAI,Java, 技术文章简述：简单介绍RAG，"
+  "message": "1+1是多少呢"
 }
 
 ### Step 13. 发聊天消息（复用已有 session）
@@ -142,7 +142,7 @@ Authorization: Bearer {{token}}
   "agentId": "{{agentId}}",
   "userId": "{{userId}}",
   "sessionId": "{{sessionId}}",
-  "message": "你好，介绍一下你自己"
+  "message": "你知道我在哪里上学吗"
 }
 
 ### Step 13. 发聊天消息（第二次，验证同 session 复用）
@@ -154,7 +154,7 @@ Authorization: Bearer {{token}}
   "agentId": "{{agentId}}",
   "userId": "{{userId}}",
   "sessionId": "{{sessionId}}",
-  "message": "你好"
+  "message": "我在天津上学"
 }
 
 ### Step 14. 查看 Redis 消息数量

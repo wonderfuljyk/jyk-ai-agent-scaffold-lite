@@ -62,6 +62,9 @@ public class AgentNode extends AbstractArmorySupport {
     @Resource
     private SchemaValidator schemaValidator;
 
+    @Resource
+    private cn.bugstack.ai.domain.agent.service.armory.matter.resilience.WorkflowCheckpoint workflowCheckpoint;
+
     @Override
     protected AiAgentRegisterVO doApply(ArmoryCommandEntity requestParameter, DefaultArmoryFactory.DynamicContext dynamicContext) throws Exception {
         log.info("Ai Agent 装配操作 - AgentNode");
@@ -84,6 +87,8 @@ public class AgentNode extends AbstractArmorySupport {
             mySpringAI.setThreadPoolExecutor(threadPoolExecutor);
             mySpringAI.setSchemaValidator(schemaValidator);
             mySpringAI.setOutputSchema(agentConfig.getOutputSchema());
+            mySpringAI.setWorkflowCheckpoint(workflowCheckpoint);
+            mySpringAI.setAgentId(aiAgentConfigTableVO.getAgent().getAgentId());
 
             LlmAgent llmAgent = LlmAgent.builder()
                     .name(agentConfig.getName())

@@ -93,6 +93,8 @@ public class MySpringAI extends BaseLlm {
     @Setter private ThreadPoolExecutor threadPoolExecutor;
     @Setter private SchemaValidator schemaValidator;
     @Setter private String outputSchema;
+    @Setter private cn.bugstack.ai.domain.agent.service.armory.matter.resilience.WorkflowCheckpoint workflowCheckpoint;
+    @Setter private String agentId;    // 用于检查点 key
 
     // ==================== 构造 ====================
     /** 统一构造器，前 7 个 overloads 全部收敛为此一个 */
@@ -176,6 +178,14 @@ public class MySpringAI extends BaseLlm {
                 }
 
                 success = true;
+
+                // ⑤ 检查点保存：用 agentId 做 key，不随 sessionId 变化
+                if (workflowCheckpoint != null && agentName != null && agentId != null) {
+                    String outputText = extractTextFromResponse(llmResponse);
+                    if (outputText != null && !outputText.isBlank()) {
+                        workflowCheckpoint.save(agentId, agentName, outputText);
+                    }
+                }
                 return Flowable.just(llmResponse);
 
             } catch (LlmExhaustedException e) {

@@ -63,6 +63,9 @@ public class ChatService implements IChatService {
     @Resource
     private cn.bugstack.ai.domain.agent.service.observability.AgentTraceContext agentTraceContext;
 
+    @Resource
+    private cn.bugstack.ai.domain.agent.service.armory.matter.resilience.WorkflowCheckpoint workflowCheckpoint;
+
     // ==================== 公开接口 ====================
 
     @Override
@@ -100,10 +103,73 @@ public class ChatService implements IChatService {
             } catch (Exception e) {
                 log.warn("ADK Session 验证失败，将创建新会话: {}", e.getMessage());
             }
-            // ADK session 不存在，创建新的
-            log.info("ADK Session 已失效，创建新会话 agentId:{} userId:{}", agentId, userId);
+            // ADK session 不存在 → 创建新会话 + 加载检查点 + 回放历史
+            log.info("ADK Session 已失效，恢复中 agentId:{} userId:{} oldSid:{}", agentId, userId, sid);
+            String newSid = createNewAdkSession(vo, agentId, userId);
+            restoreCheckpointToAdk(vo, agentId, userId, newSid);
+            replayHistoryToAdk(vo, userId, sid, newSid);
+            migrateRedisData(userId, sid, newSid);
+            return newSid;
         }
         return createNewAdkSession(vo, agentId, userId);
+    }
+
+    /** 从 Redis 读取旧会话历史，回放到新 ADK Session */
+    private void replayHistoryToAdk(AiAgentRegisterVO vo, String userId, String oldSid, String newSid) {
+        try {
+            var sessionOpt = vo.getRunner().sessionService()
+                    .getSession(vo.getAppName(), userId, newSid,
+                            java.util.Optional.of(GetSessionConfig.builder().build()))
+                    .blockingGet();
+            if (sessionOpt == null) return;
+
+            List<ConversationMessageVO> history = sessionContextRepository
+                    .getRecentMessages(userId, oldSid, 20);
+            int count = 0;
+            for (ConversationMessageVO msg : history) {
+                if ("system".equals(msg.getRole()) || "summary".equals(msg.getMessageType())) continue;
+                try {
+                    String author = "user".equals(msg.getRole()) ? "user" : "model";
+                    var event = com.google.adk.events.Event.builder()
+                            .author(author)
+                            .content(Content.fromParts(Part.fromText(
+                                    msg.getContent() != null ? msg.getContent() : "")))
+                            .timestamp(System.currentTimeMillis())
+                            .build();
+                    vo.getRunner().sessionService().appendEvent(sessionOpt, event).blockingGet();
+                    count++;
+                } catch (Exception e) {
+                    log.warn("历史回放失败 role:{}", msg.getRole());
+                }
+            }
+            log.info("历史回放完成 {}/{} 条 oldSid:{} → newSid:{}", count, history.size(), oldSid, newSid);
+        } catch (Exception e) {
+            log.error("历史回放异常 oldSid:{} → newSid:{}", oldSid, newSid, e);
+        }
+    }
+
+    /** 从 Redis 加载检查点，注入 ADK Session state（已完成 Agent 不用重跑） */
+    private void restoreCheckpointToAdk(AiAgentRegisterVO vo, String agentId, String userId, String sessionId) {
+        try {
+            var sessionOpt = vo.getRunner().sessionService()
+                    .getSession(vo.getAppName(), userId, sessionId,
+                            java.util.Optional.of(GetSessionConfig.builder().build()))
+                    .blockingGet();
+            if (sessionOpt == null) return;
+
+            Map<String, String> ckpts = workflowCheckpoint.loadAll(agentId);
+            if (ckpts.isEmpty()) return;
+
+            int count = 0;
+            for (var e : ckpts.entrySet()) {
+                sessionOpt.state().put(e.getKey(), e.getValue());
+                count++;
+            }
+            log.info("检查点恢复 {}/{} 个 Agent 到 Session state agentId:{} sessionId:{}",
+                    count, ckpts.size(), agentId, sessionId);
+        } catch (Exception ex) {
+            log.error("检查点恢复异常 agentId:{} sessionId:{}", agentId, sessionId, ex);
+        }
     }
 
     @Override
@@ -120,10 +186,14 @@ public class ChatService implements IChatService {
         AiAgentRegisterVO vo = defaultArmoryFactory.getAiAgentRegisterVO(agentId);
         if (null == vo) throw new AppException(ResponseCode.E0001.getCode());
 
-        // V3: 请求去重
-        if (requestDeduplicator.isDuplicate(userId, sessionId, message)) {
-            log.info("重复请求已拦截 userId={} sessionId={}", userId, sessionId);
-            return List.of("(重复请求，已跳过 LLM 调用)");
+        // V3: 请求去重 → 直接返回缓存回复
+        String dedupHash = requestDeduplicator.checkDuplicate(userId, sessionId, message);
+        if (dedupHash != null) {
+            String cached = requestDeduplicator.getCachedReply(userId, sessionId, dedupHash);
+            if (cached != null) {
+                log.info("重复请求，返回缓存回复 userId={} sessionId={}", userId, sessionId);
+                return List.of(cached);
+            }
         }
 
         // 持久化用户消息
@@ -154,7 +224,14 @@ public class ChatService implements IChatService {
                         .role("assistant").content(fullReply).messageType("reply")
                         .timestamp(LocalDateTime.now()).build());
 
+        // V3: 缓存回复（用于重复请求直接返回）
+        if (dedupHash != null) {
+            requestDeduplicator.cacheReply(userId, effectiveSid, dedupHash, fullReply);
+        }
+
         sessionSummaryService.checkAndSummarizeAsync(userId, effectiveSid);
+        // 工作流全部完成，清除检查点防止下次请求复用脏数据
+        workflowCheckpoint.clear(agentId);
         return result.outputs();
     }
 
@@ -235,6 +312,7 @@ public class ChatService implements IChatService {
                         .timestamp(LocalDateTime.now()).build());
 
         sessionSummaryService.checkAndSummarizeAsync(entity.getUserId(), effectiveSid);
+        workflowCheckpoint.clear(entity.getAgentId());
         return result.outputs();
     }
 
